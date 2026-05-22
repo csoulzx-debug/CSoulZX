@@ -1,4 +1,4 @@
-Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
    Name = "SPEED HUB V4 | POSITION LOCK",
@@ -8,7 +8,8 @@ local Window = Rayfield:CreateWindow({
    KeySystem = false
 })
 
-local SelectedMutation = "Bacon"
+-- Langsung mengaktifkan "Multi Select" saat script pertama kali dijalankan
+local SelectedMutation = "Multi Select"
 local AutoTradeEnabled = false
 
 -- Tabel memori agar tidak mengklik tombol yang SAMA persis berkali-kali
@@ -17,15 +18,15 @@ local ClickedSlots = {}
 local TradeTab = Window:CreateTab("Trading", 4483362458)
 TradeTab:CreateSection("Mutation Filter Settings")
 
--- Dropdown Pilih Mutasi (Daftar mutasi baru sudah ditambahkan di sini)
+-- Dropdown Pilih Mutasi dengan "Multi Select" sebagai opsi bawaan aktif
 local MutationDropdown = TradeTab:CreateDropdown({
    Name = "Pilih Mutasi",
    Options = {
-      "Bacon", "Rainbow", "Astral", "Phantom", 
-      "Plasma", "Radioactive", "Void", "Shadow", 
-      "Electrified", "Virus", "Wet", "Alien", "Enchanted"
+      "Multi Select", "None", "Bacon", "Golden", "Diamond", "Molten", 
+      "Rainbow", "Astral", "Phantom", "Plasma", "Radioactive", 
+      "Void", "Shadow", "Electrified", "Virus", "Wet", "Alien", "Enchanted"
    },
-   CurrentOption = {"Bacon"},
+   CurrentOption = {"Multi Select"}, -- Aktif otomatis ke Multi Select
    MultipleOptions = false,
    Callback = function(Option)
       SelectedMutation = Option[1]
@@ -50,62 +51,85 @@ local TradeToggle = TradeTab:CreateToggle({
    end,
 })
 
--- --- LOGIKA UTAMA (TETAP SAMA): LOCK POSISI LAYAR BAWAH ---
+-- --- LOGIKA UTAMA (TETAP SAMA): LOCK POSISI LAYAR BAWAH + MULTI SELECT ---
 local LocalPlayer = game.Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
 task.spawn(function()
-    while task.wait(0.4) do
+    while task.wait(0.3) do
         if AutoTradeEnabled then
             StatusLabel:Set("Status: Memindai " .. SelectedMutation .. "...")
             local foundItem = false
             
+            -- PENGAMAN ANTI-STUCK: Hapus dari memori jika item sudah berhasil naik ke atas (posY <= 200)
+            for button, _ in pairs(ClickedSlots) do
+                if button and button.Parent then
+                    if button.AbsolutePosition.Y <= 200 then
+                        ClickedSlots[button] = nil
+                    end
+                else
+                    ClickedSlots[button] = nil
+                end
+            end
+            
             for _, gui in ipairs(PlayerGui:GetChildren()) do
-                if gui:IsA("ScreenGui") and gui.Enabled then
+                if gui:IsA("ScreenGui") and gui.Enabled and gui.Name ~= "Rayfield" then
                     
                     for _, object in ipairs(gui:GetDescendants()) do
-                        if object:IsA("TextLabel") and object.Visible and string.find(string.lower(object.Text), string.lower(SelectedMutation)) then
+                        if object:IsA("TextLabel") and object.Visible then
                             
-                            -- Cari tombol slot itemnya
-                            local current = object
-                            local clickButton = nil
+                            local isTarget = false
                             
-                            for i = 1, 3 do
-                                if current then
-                                    if current:IsA("TextButton") or current:IsA("ImageButton") then
-                                        clickButton = current
-                                        break
+                            -- Jika memilih "Multi Select", semua item di inventory bawah langsung ditargetkan
+                            if SelectedMutation == "Multi Select" then
+                                isTarget = true
+                            -- Jika memilih mutasi spesifik (Bacon, Golden, dll), lakukan pencarian teks asli
+                            elseif string.find(string.lower(object.Text), string.lower(SelectedMutation)) then
+                                isTarget = true
+                            end
+                            
+                            if isTarget then
+                                -- Cari tombol slot itemnya (Logika asli bawaan kamu)
+                                local current = object
+                                local clickButton = nil
+                                
+                                for i = 1, 3 do
+                                    if current then
+                                        if current:IsA("TextButton") or current:IsA("ImageButton") then
+                                            clickButton = current
+                                            break
+                                        end
+                                        clickButton = current:FindFirstChildOfClass("TextButton") or current:FindFirstChildOfClass("ImageButton")
+                                        if clickButton then break end
+                                        current = current.Parent
                                     end
-                                    clickButton = current:FindFirstChildOfClass("TextButton") or current:FindFirstChildOfClass("ImageButton")
-                                    if clickButton then break end
-                                    current = current.Parent
                                 end
-                            end
-                            
-                            -- Eksekusi jika tombol ketemu dan belum pernah diklik di sesi ini
-                            if clickButton and not ClickedSlots[clickButton] then
                                 
-                                -- DETEKSI POSISI (AbsolutePosition.Y)
-                                -- Mengunci area bawah agar item yang sudah naik ke atas tidak diklik lagi (anti-unselect)
-                                local posY = clickButton.AbsolutePosition.Y
-                                
-                                if posY > 200 then 
-                                    foundItem = true
-                                    StatusLabel:Set("Status: Mengklik " .. object.Text)
+                                -- Eksekusi jika tombol ketemu dan belum pernah diklik di sesi ini
+                                if clickButton and not ClickedSlots[clickButton] then
                                     
-                                    -- Catat tombol ini agar tidak disentuh lagi
-                                    ClickedSlots[clickButton] = true
+                                    -- DETEKSI POSISI (AbsolutePosition.Y)
+                                    local posY = clickButton.AbsolutePosition.Y
                                     
-                                    pcall(function()
-                                        firesignal(clickButton.MouseButton1Click)
-                                        firesignal(clickButton.MouseButton1Down)
-                                        firesignal(clickButton.Activated)
-                                    end)
-                                    
-                                    task.wait(0.25) -- Jeda stabil agar item sempat berpindah slot
+                                    if posY > 200 then 
+                                        foundItem = true
+                                        StatusLabel:Set("Status: Mengklik " .. object.Text)
+                                        
+                                        -- Catat tombol ini agar tidak disentuh lagi selama masih di bawah
+                                        ClickedSlots[clickButton] = true
+                                        
+                                        -- Menggunakan task.spawn agar klik berjalan instan tanpa menahan putaran loop scan
+                                        task.spawn(function()
+                                            pcall(function()
+                                                firesignal(clickButton.MouseButton1Click)
+                                                firesignal(clickButton.MouseButton1Down)
+                                                firesignal(clickButton.Activated)
+                                            end)
+                                        end)
+                                    end
                                 end
+                                
                             end
-                            
                         end
                     end
                     
@@ -113,7 +137,7 @@ task.spawn(function()
             end
             
             if not foundItem then
-                StatusLabel:Set("Status: Selesai / Tidak ada mutasi " .. SelectedMutation .. " baru.")
+                StatusLabel:Set("Status: Standby / Menunggu item " .. SelectedMutation .. " baru.")
             end
         end
     end
