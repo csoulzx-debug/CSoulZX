@@ -1,7 +1,7 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-   Name = "SPEED HUB V4 | FIX SELECTION",
+   Name = "SPEED HUB V4 | CONTINUOUS SELECTION",
    LoadingTitle = "Loading Auto Trade System...",
    LoadingSubtitle = "by Developer",
    ConfigurationSaving = { Enabled = false },
@@ -50,14 +50,15 @@ local TradeToggle = TradeTab:CreateToggle({
    end,
 })
 
--- --- LOGIKA UTAMA: FIX DETEKSI BRAINROT SELECTION ---
+-- --- LOGIKA UTAMA: NON-STOP CONTINUOUS SELECTION LOOP ---
 local LocalPlayer = game.Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
 task.spawn(function()
-    while task.wait(0.4) do
+    while true do
+        task.wait(0.2) -- Jeda konstan antar putaran scan (dipercepat agar lebih agresif)
+        
         if AutoTradeEnabled then
-            StatusLabel:Set("Status: Memindai " .. SelectedMutation .. "...")
             local foundItem = false
             
             -- PENGAMAN ANTI-UNSELECT: Bersihkan tombol dari memori jika posisinya sudah naik ke atas (posY <= 200)
@@ -72,18 +73,15 @@ task.spawn(function()
             end
             
             for _, gui in ipairs(PlayerGui:GetChildren()) do
-                -- Pastikan hanya memindai UI aktif dan bukan UI bawaan Rayfield Hub
                 if gui:IsA("ScreenGui") and gui.Enabled and gui.Name ~= "Rayfield" then
                     
                     for _, object in ipairs(gui:GetDescendants()) do
-                        
-                        -- Cek apakah objek ini adalah tombol klik (TextButton / ImageButton)
                         if object:IsA("TextButton") or object:IsA("ImageButton") then
                             
                             local parentName = string.lower(object.Parent and object.Parent.Name or "")
                             local buttonName = string.lower(object.Name)
                             
-                            -- BLACKLIST SISTEM: Lewati jika tombol ini adalah bagian dari sistem pembatalan/konfirmasi trade
+                            -- BLACKLIST SISTEM: Abaikan tombol cancel/decline/close
                             local isCancelButton = string.find(buttonName, "cancel") or string.find(buttonName, "decline") or 
                                                    string.find(buttonName, "close") or string.find(buttonName, "batal") or
                                                    string.find(parentName, "action") or buttonName == "x"
@@ -93,12 +91,11 @@ task.spawn(function()
                                 
                                 -- Mode 1: Pilih Semua Item di Inventory Bawah
                                 if SelectedMutation == "Pilih Semua" then
-                                    -- Semua tombol di area bawah yang terlihat dianggap sebagai item brainrot
                                     if object.Visible and object.AbsolutePosition.Y > 200 then
                                         isTarget = true
                                     end
                                 else
-                                    -- Mode 2: Cari Mutasi Spesifik Berdasarkan Teks di dalam Slot
+                                    -- Mode 2: Cari Mutasi Spesifik Berdasarkan Teks / Nama Objek
                                     local hasText = object:FindFirstChildOfClass("TextLabel")
                                     if hasText and string.find(string.lower(hasText.Text), string.lower(SelectedMutation)) then
                                         isTarget = true
@@ -107,14 +104,13 @@ task.spawn(function()
                                     end
                                 end
                                 
-                                -- Eksekusi Klik jika memenuhi syarat dan belum masuk memori klik sukses
+                                -- Eksekusi Klik beruntun
                                 if isTarget and not ClickedSlots[object] then
                                     local posY = object.AbsolutePosition.Y
                                     
-                                    -- Kunci posisi layar bawah (Inventory)
                                     if posY > 200 then
                                         foundItem = true
-                                        StatusLabel:Set("Status: Memilih Item -> PosY: " .. math.floor(posY))
+                                        StatusLabel:Set("Status: Mengklik " .. object.Name)
                                         
                                         ClickedSlots[object] = true
                                         
@@ -124,20 +120,21 @@ task.spawn(function()
                                             firesignal(object.Activated)
                                         end)
                                         
-                                        task.wait(0.25) -- Jeda stabil agar item sempat pindah ke slot offer
-                                        break -- Segarkan loop untuk membaca susunan inventory terbaru
+                                        -- Jeda mikro (0.1 detik) antar klik item agar game tidak mendeteksi spam berlebih yang menyebabkan kick,
+                                        -- tapi tetap cukup cepat untuk memasukkan seluruh item secara beruntun.
+                                        task.wait(0.1) 
                                     end
                                 end
                                 
                             end
-                        end -- Akhir cek Button
-                        
+                        end 
                     end
+                    
                 end
             end
             
             if not foundItem then
-                StatusLabel:Set("Status: Standby / Tidak ada item baru.")
+                StatusLabel:Set("Status: Standby / Memantau " .. SelectedMutation .. "...")
             end
         end
     end
