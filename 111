@@ -1,7 +1,7 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-   Name = "SPEED HUB V4 | POSITION LOCK",
+   Name = "SPEED HUB V4 | FIX SELECTION",
    LoadingTitle = "Loading Auto Trade System...",
    LoadingSubtitle = "by Developer",
    ConfigurationSaving = { Enabled = false },
@@ -50,7 +50,7 @@ local TradeToggle = TradeTab:CreateToggle({
    end,
 })
 
--- --- LOGIKA UTAMA: LOCK POSISI LAYAR BAWAH + ANTI UNSELECT + ANTI CANCEL ---
+-- --- LOGIKA UTAMA: FIX DETEKSI BRAINROT SELECTION ---
 local LocalPlayer = game.Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
@@ -72,80 +72,72 @@ task.spawn(function()
             end
             
             for _, gui in ipairs(PlayerGui:GetChildren()) do
-                if gui:IsA("ScreenGui") and gui.Enabled then
+                -- Pastikan hanya memindai UI aktif dan bukan UI bawaan Rayfield Hub
+                if gui:IsA("ScreenGui") and gui.Enabled and gui.Name ~= "Rayfield" then
                     
                     for _, object in ipairs(gui:GetDescendants()) do
                         
-                        -- PENGAMAN ANTI-CANCEL & BUTTON SISTEM (Abaikan teks sistem/tombol batal)
-                        local lowerText = string.lower(object.Text or "")
-                        local isSystemButton = string.find(lowerText, "cancel") or 
-                                               string.find(lowerText, "decline") or 
-                                               string.find(lowerText, "remove") or 
-                                               lowerText == "x" or 
-                                               lowerText == ""
-                        
-                        if not isSystemButton then
+                        -- Cek apakah objek ini adalah tombol klik (TextButton / ImageButton)
+                        if object:IsA("TextButton") or object:IsA("ImageButton") then
                             
-                            local nameMatches = false
-                            if SelectedMutation == "Pilih Semua" then
-                                if object:IsA("TextLabel") and object.Visible then
-                                    nameMatches = true
-                                end
-                            else
-                                if object:IsA("TextLabel") and object.Visible and string.find(lowerText, string.lower(SelectedMutation)) then
-                                    nameMatches = true
-                                end
-                            end
-
-                            if nameMatches then
-                                -- Cari tombol slot itemnya
-                                local current = object
-                                local clickButton = nil
+                            local parentName = string.lower(object.Parent and object.Parent.Name or "")
+                            local buttonName = string.lower(object.Name)
+                            
+                            -- BLACKLIST SISTEM: Lewati jika tombol ini adalah bagian dari sistem pembatalan/konfirmasi trade
+                            local isCancelButton = string.find(buttonName, "cancel") or string.find(buttonName, "decline") or 
+                                                   string.find(buttonName, "close") or string.find(buttonName, "batal") or
+                                                   string.find(parentName, "action") or buttonName == "x"
+                            
+                            if not isCancelButton then
+                                local isTarget = false
                                 
-                                for i = 1, 3 do
-                                    if current then
-                                        if current:IsA("TextButton") or current:IsA("ImageButton") then
-                                            clickButton = current
-                                            break
-                                        end
-                                        clickButton = current:FindFirstChildOfClass("TextButton") or current:FindFirstChildOfClass("ImageButton")
-                                        if clickButton then break end
-                                        current = current.Parent
+                                -- Mode 1: Pilih Semua Item di Inventory Bawah
+                                if SelectedMutation == "Pilih Semua" then
+                                    -- Semua tombol di area bawah yang terlihat dianggap sebagai item brainrot
+                                    if object.Visible and object.AbsolutePosition.Y > 200 then
+                                        isTarget = true
+                                    end
+                                else
+                                    -- Mode 2: Cari Mutasi Spesifik Berdasarkan Teks di dalam Slot
+                                    local hasText = object:FindFirstChildOfClass("TextLabel")
+                                    if hasText and string.find(string.lower(hasText.Text), string.lower(SelectedMutation)) then
+                                        isTarget = true
+                                    elseif string.find(string.lower(object.Name), string.lower(SelectedMutation)) then
+                                        isTarget = true
                                     end
                                 end
                                 
-                                -- Eksekusi jika tombol ketemu dan belum pernah diklik di sesi ini
-                                if clickButton and not ClickedSlots[clickButton] then
+                                -- Eksekusi Klik jika memenuhi syarat dan belum masuk memori klik sukses
+                                if isTarget and not ClickedSlots[object] then
+                                    local posY = object.AbsolutePosition.Y
                                     
-                                    -- DETEKSI POSISI (AbsolutePosition.Y)
-                                    local posY = clickButton.AbsolutePosition.Y
-                                    
-                                    if posY > 200 then 
+                                    -- Kunci posisi layar bawah (Inventory)
+                                    if posY > 200 then
                                         foundItem = true
-                                        StatusLabel:Set("Status: Mengklik " .. object.Text)
+                                        StatusLabel:Set("Status: Memilih Item -> PosY: " .. math.floor(posY))
                                         
-                                        -- Catat tombol ini agar tidak disentuh lagi selama dia masih di area bawah
-                                        ClickedSlots[clickButton] = true
+                                        ClickedSlots[object] = true
                                         
                                         pcall(function()
-                                            firesignal(clickButton.MouseButton1Click)
-                                            firesignal(clickButton.MouseButton1Down)
-                                            firesignal(clickButton.Activated)
+                                            firesignal(object.MouseButton1Click)
+                                            firesignal(object.MouseButton1Down)
+                                            firesignal(object.Activated)
                                         end)
                                         
-                                        task.wait(0.25) -- Jeda stabil agar item sempat berpindah slot
+                                        task.wait(0.25) -- Jeda stabil agar item sempat pindah ke slot offer
+                                        break -- Segarkan loop untuk membaca susunan inventory terbaru
                                     end
                                 end
                                 
                             end
-                        end -- Akhir dari filter anti-cancel
+                        end -- Akhir cek Button
                         
                     end
                 end
             end
             
             if not foundItem then
-                StatusLabel:Set("Status: Selesai / Tidak ada item baru.")
+                StatusLabel:Set("Status: Standby / Tidak ada item baru.")
             end
         end
     end
