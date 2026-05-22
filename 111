@@ -1,7 +1,7 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-   Name = "SPEED HUB V4 | POSITION LOCK",
+   Name = "SPEED HUB V4 | INSTANT SELECTION",
    LoadingTitle = "Loading Auto Trade System...",
    LoadingSubtitle = "by Developer",
    ConfigurationSaving = { Enabled = false },
@@ -11,20 +11,19 @@ local Window = Rayfield:CreateWindow({
 local SelectedMutation = "Bacon"
 local AutoTradeEnabled = false
 
--- Daftar semua mutasi yang akan dideteksi jika opsi "Semua Mutasi" dipilih
+-- Daftar semua mutasi
 local MutationList = {
    "Bacon", "Rainbow", "Astral", "Phantom", 
    "Plasma", "Radioactive", "Void", "Shadow", 
    "Electrified", "Virus", "Wet", "Alien", "Enchanted"
 }
 
--- Tabel memori agar tidak mengklik tombol yang SAMA persis berkali-kali
+-- Tabel memori anti-unselect
 local ClickedSlots = {}
 
 local TradeTab = Window:CreateTab("Trading", 4483362458)
 TradeTab:CreateSection("Mutation Filter Settings")
 
--- Dropdown Pilih Mutasi (Sudah ditambahkan opsi "Semua Mutasi")
 local MutationDropdown = TradeTab:CreateDropdown({
    Name = "Pilih Mutasi",
    Options = {
@@ -36,14 +35,12 @@ local MutationDropdown = TradeTab:CreateDropdown({
    MultipleOptions = false,
    Callback = function(Option)
       SelectedMutation = Option[1]
-      ClickedSlots = {} -- Reset memori saat ganti mutasi agar bisa memproses jenis baru
+      ClickedSlots = {} 
    end,
 })
 
--- Label Status
 local StatusLabel = TradeTab:CreateLabel("Status: Auto Trade Mati")
 
--- Toggle Auto Trade
 local TradeToggle = TradeTab:CreateToggle({
    Name = "Auto Trade",
    CurrentValue = false,
@@ -52,24 +49,21 @@ local TradeToggle = TradeTab:CreateToggle({
       AutoTradeEnabled = Value
       if not Value then
          StatusLabel:Set("Status: Auto Trade Mati")
-         ClickedSlots = {} -- Reset saat dimatikan
+         ClickedSlots = {} 
       end
    end,
 })
 
--- --- LOGIKA UTAMA: ENDLESS CONTINUOUS SCANNING WITH "SEMUA MUTASI" OPTION ---
+-- --- LOGIKA UTAMA: INSTANT CLICKING (TANPA JEDA) ---
 local LocalPlayer = game.Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
 task.spawn(function()
-    while true do
-        task.wait(0.25) -- Scan konstan dan cepat setiap 0.25 detik tanpa henti
-        
+    while task.wait() do -- Pemindaian berjalan setiap frame layar (kecepatan maksimal)
         if AutoTradeEnabled then
-            StatusLabel:Set("Status: Memindai " .. SelectedMutation .. "...")
             local foundItem = false
             
-            -- PENGAMAN ANTI-UNSELECT: Bersihkan tombol dari memori jika posisinya sudah naik ke atas (posY <= 200)
+            -- PENGAMAN ANTI-UNSELECT: Bersihkan memori jika item sudah naik (posY <= 200)
             for button, _ in pairs(ClickedSlots) do
                 if button and button.Parent then
                     if button.AbsolutePosition.Y <= 200 then
@@ -89,9 +83,7 @@ task.spawn(function()
                             local textLower = string.lower(object.Text)
                             local isTargetMutation = false
                             
-                            -- LOGIKA BARU: Cek filter berdasarkan pilihan Dropdown
                             if SelectedMutation == "Semua Mutasi" then
-                                -- Jika memilih "Semua Mutasi", scan semua nama yang ada di daftar tabel MutationList
                                 for _, mutationName in ipairs(MutationList) do
                                     if string.find(textLower, string.lower(mutationName)) then
                                         isTargetMutation = true
@@ -99,15 +91,12 @@ task.spawn(function()
                                     end
                                 end
                             else
-                                -- Jika memilih mutasi spesifik (misal: Bacon saja), hanya scan nama tersebut
                                 if string.find(textLower, string.lower(SelectedMutation)) then
                                     isTargetMutation = true
                                 end
                             end
                             
-                            -- Eksekusi jika item mutasi yang dicari cocok
                             if isTargetMutation then
-                                -- Cari tombol slot itemnya
                                 local current = object
                                 local clickButton = nil
                                 
@@ -123,24 +112,24 @@ task.spawn(function()
                                     end
                                 end
                                 
-                                -- Jalankan klik jika tombol ditemukan dan belum masuk daftar penawaran atas
                                 if clickButton and not ClickedSlots[clickButton] then
                                     local posY = clickButton.AbsolutePosition.Y
                                     
-                                    -- Kunci area inventory bawah agar item di slot atas tidak ter-unselect (posY > 200)
+                                    -- Kunci area inventory bawah
                                     if posY > 200 then 
                                         foundItem = true
-                                        StatusLabel:Set("Status: Mengklik " .. object.Text)
-                                        
                                         ClickedSlots[clickButton] = true
                                         
-                                        pcall(function()
-                                            firesignal(clickButton.MouseButton1Click)
-                                            firesignal(clickButton.MouseButton1Down)
-                                            firesignal(clickButton.Activated)
+                                        -- EKSEKUSI KLIK INSTAN: 
+                                        -- Menggunakan task.spawn agar semua item diklik secara bersamaan tanpa saling menunggu
+                                        task.spawn(function()
+                                            pcall(function()
+                                                firesignal(clickButton.MouseButton1Click)
+                                                firesignal(clickButton.MouseButton1Down)
+                                                firesignal(clickButton.Activated)
+                                            end)
                                         end)
                                         
-                                        task.wait(0.1) -- Jeda mikro antar item agar proses memasukkan trade lancar
                                     end
                                 end
                             end
@@ -151,9 +140,10 @@ task.spawn(function()
                 end
             end
             
-            -- Jika semua target mutasi saat ini sudah masuk ke slot atas, script tetap siaga memantau layar
-            if not foundItem then
-                StatusLabel:Set("Status: Selalu Memantau / Menunggu Item " .. SelectedMutation .. " Baru...")
+            if foundItem then
+                StatusLabel:Set("Status: Memasukkan " .. SelectedMutation .. " secara instan!")
+            else
+                StatusLabel:Set("Status: Menunggu Item " .. SelectedMutation .. " Baru...")
             end
         end
     end
