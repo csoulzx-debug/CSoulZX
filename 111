@@ -8,8 +8,8 @@ local Window = Rayfield:CreateWindow({
    KeySystem = false
 })
 
--- Langsung mengaktifkan "Multi Select" saat script pertama kali dijalankan
-local SelectedMutation = "Multi Select"
+-- Menyimpan daftar mutasi yang sedang dipilih/dicentang oleh user
+local SelectedMutations = { ["Bacon"] = true } 
 local AutoTradeEnabled = false
 
 -- Tabel memori agar tidak mengklik tombol yang SAMA persis berkali-kali
@@ -18,19 +18,25 @@ local ClickedSlots = {}
 local TradeTab = Window:CreateTab("Trading", 4483362458)
 TradeTab:CreateSection("Mutation Filter Settings")
 
--- Dropdown Pilih Mutasi dengan "Multi Select" sebagai opsi bawaan aktif
+-- Dropdown diubah menjadi MultipleOptions = true agar bisa memilih banyak mutasi sekaligus
 local MutationDropdown = TradeTab:CreateDropdown({
-   Name = "Pilih Mutasi",
+   Name = "Pilih Mutasi (Bisa Pilih Banyak)",
    Options = {
-      "Multi Select", "None", "Bacon", "Golden", "Diamond", "Molten", 
+      "None", "Bacon", "Golden", "Diamond", "Molten", 
       "Rainbow", "Astral", "Phantom", "Plasma", "Radioactive", 
       "Void", "Shadow", "Electrified", "Virus", "Wet", "Alien", "Enchanted"
    },
-   CurrentOption = {"Multi Select"}, -- Aktif otomatis ke Multi Select
-   MultipleOptions = false,
-   Callback = function(Option)
-      SelectedMutation = Option[1]
-      ClickedSlots = {} -- Reset memori saat ganti mutasi agar bisa memproses jenis baru
+   CurrentOption = {"Bacon"}, 
+   MultipleOptions = true, -- Mengaktifkan fitur multi-select asli Rayfield
+   Callback = function(Options)
+      -- Reset tabel pilihan lama dan memori klik setiap ada perubahan centang
+      SelectedMutations = {}
+      ClickedSlots = {}
+      
+      -- Masukkan semua mutasi yang sedang dicentang ke dalam daftar aktif
+      for _, optionName in ipairs(Options) do
+         SelectedMutations[optionName] = true
+      end
    end,
 })
 
@@ -51,14 +57,14 @@ local TradeToggle = TradeTab:CreateToggle({
    end,
 })
 
--- --- LOGIKA UTAMA (TETAP SAMA): LOCK POSISI LAYAR BAWAH + MULTI SELECT ---
+-- --- LOGIKA UTAMA (DASAR TETAP SAMA): LOCK POSISI LAYAR BAWAH + MULTI FILTER ---
 local LocalPlayer = game.Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
 task.spawn(function()
     while task.wait(0.3) do
         if AutoTradeEnabled then
-            StatusLabel:Set("Status: Memindai " .. SelectedMutation .. "...")
+            StatusLabel:Set("Status: Memindai Mutasi yang Dipilih...")
             local foundItem = false
             
             -- PENGAMAN ANTI-STUCK: Hapus dari memori jika item sudah berhasil naik ke atas (posY <= 200)
@@ -79,13 +85,14 @@ task.spawn(function()
                         if object:IsA("TextLabel") and object.Visible then
                             
                             local isTarget = false
+                            local textLower = string.lower(object.Text)
                             
-                            -- Jika memilih "Multi Select", semua item di inventory bawah langsung ditargetkan
-                            if SelectedMutation == "Multi Select" then
-                                isTarget = true
-                            -- Jika memilih mutasi spesifik (Bacon, Golden, dll), lakukan pencarian teks asli
-                            elseif string.find(string.lower(object.Text), string.lower(SelectedMutation)) then
-                                isTarget = true
+                            -- MENCARI APAKAH TEKS COCOK DENGAN SALAH SATU MUTASI YANG DICENTANG
+                            for mutationName, active in pairs(SelectedMutations) do
+                                if active and string.find(textLower, string.lower(mutationName)) then
+                                    isTarget = true
+                                    break -- Keluar loop kecil jika sudah ketemu yang cocok
+                                end
                             end
                             
                             if isTarget then
@@ -118,7 +125,7 @@ task.spawn(function()
                                         -- Catat tombol ini agar tidak disentuh lagi selama masih di bawah
                                         ClickedSlots[clickButton] = true
                                         
-                                        -- Menggunakan task.spawn agar klik berjalan instan tanpa menahan putaran loop scan
+                                        -- Jalankan klik secara cepat lewat task.spawn
                                         task.spawn(function()
                                             pcall(function()
                                                 firesignal(clickButton.MouseButton1Click)
@@ -137,7 +144,7 @@ task.spawn(function()
             end
             
             if not foundItem then
-                StatusLabel:Set("Status: Standby / Menunggu item " .. SelectedMutation .. " baru.")
+                StatusLabel:Set("Status: Standby / Menunggu item mutasi baru...")
             end
         end
     end
