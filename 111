@@ -1,0 +1,152 @@
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+local Window = Rayfield:CreateWindow({
+   Name = "SPEED HUB V4 | POSITION LOCK",
+   LoadingTitle = "Loading Auto Trade System...",
+   LoadingSubtitle = "by Developer",
+   ConfigurationSaving = { Enabled = false },
+   KeySystem = false
+})
+
+local SelectedMutation = "Bacon"
+local AutoTradeEnabled = false
+
+-- Tabel memori agar tidak mengklik tombol yang SAMA persis berkali-kali
+local ClickedSlots = {}
+
+local TradeTab = Window:CreateTab("Trading", 4483362458)
+TradeTab:CreateSection("Mutation Filter Settings")
+
+-- Dropdown Pilih Mutasi
+local MutationDropdown = TradeTab:CreateDropdown({
+   Name = "Pilih Mutasi",
+   Options = {
+      "Pilih Semua", "Bacon", "Rainbow", "Astral", "Phantom", 
+      "Plasma", "Radioactive", "Void", "Shadow", 
+      "Electrified", "Virus", "Wet", "Alien", "Enchanted"
+   },
+   CurrentOption = {"Bacon"},
+   MultipleOptions = false,
+   Callback = function(Option)
+      SelectedMutation = Option[1]
+      ClickedSlots = {} -- Reset memori saat ganti mutasi agar bisa memproses jenis baru
+   end,
+})
+
+-- Label Status
+local StatusLabel = TradeTab:CreateLabel("Status: Auto Trade Mati")
+
+-- Toggle Auto Trade
+local TradeToggle = TradeTab:CreateToggle({
+   Name = "Auto Trade",
+   CurrentValue = false,
+   Flag = "AutoTradeToggle",
+   Callback = function(Value)
+      AutoTradeEnabled = Value
+      if not Value then
+         StatusLabel:Set("Status: Auto Trade Mati")
+         ClickedSlots = {} -- Reset saat dimatikan
+      end
+   end,
+})
+
+-- --- LOGIKA UTAMA: LOCK POSISI LAYAR BAWAH + ANTI UNSELECT + ANTI CANCEL ---
+local LocalPlayer = game.Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+
+task.spawn(function()
+    while task.wait(0.4) do
+        if AutoTradeEnabled then
+            StatusLabel:Set("Status: Memindai " .. SelectedMutation .. "...")
+            local foundItem = false
+            
+            -- PENGAMAN ANTI-UNSELECT: Bersihkan tombol dari memori jika posisinya sudah naik ke atas (posY <= 200)
+            for button, _ in pairs(ClickedSlots) do
+                if button and button.Parent then
+                    if button.AbsolutePosition.Y <= 200 then
+                        ClickedSlots[button] = nil
+                    end
+                else
+                    ClickedSlots[button] = nil 
+                end
+            end
+            
+            for _, gui in ipairs(PlayerGui:GetChildren()) do
+                if gui:IsA("ScreenGui") and gui.Enabled then
+                    
+                    for _, object in ipairs(gui:GetDescendants()) do
+                        
+                        -- PENGAMAN ANTI-CANCEL & BUTTON SISTEM (Abaikan teks sistem/tombol batal)
+                        local lowerText = string.lower(object.Text or "")
+                        local isSystemButton = string.find(lowerText, "cancel") or 
+                                               string.find(lowerText, "decline") or 
+                                               string.find(lowerText, "remove") or 
+                                               lowerText == "x" or 
+                                               lowerText == ""
+                        
+                        if not isSystemButton then
+                            
+                            local nameMatches = false
+                            if SelectedMutation == "Pilih Semua" then
+                                if object:IsA("TextLabel") and object.Visible then
+                                    nameMatches = true
+                                end
+                            else
+                                if object:IsA("TextLabel") and object.Visible and string.find(lowerText, string.lower(SelectedMutation)) then
+                                    nameMatches = true
+                                end
+                            end
+
+                            if nameMatches then
+                                -- Cari tombol slot itemnya
+                                local current = object
+                                local clickButton = nil
+                                
+                                for i = 1, 3 do
+                                    if current then
+                                        if current:IsA("TextButton") or current:IsA("ImageButton") then
+                                            clickButton = current
+                                            break
+                                        end
+                                        clickButton = current:FindFirstChildOfClass("TextButton") or current:FindFirstChildOfClass("ImageButton")
+                                        if clickButton then break end
+                                        current = current.Parent
+                                    end
+                                end
+                                
+                                -- Eksekusi jika tombol ketemu dan belum pernah diklik di sesi ini
+                                if clickButton and not ClickedSlots[clickButton] then
+                                    
+                                    -- DETEKSI POSISI (AbsolutePosition.Y)
+                                    local posY = clickButton.AbsolutePosition.Y
+                                    
+                                    if posY > 200 then 
+                                        foundItem = true
+                                        StatusLabel:Set("Status: Mengklik " .. object.Text)
+                                        
+                                        -- Catat tombol ini agar tidak disentuh lagi selama dia masih di area bawah
+                                        ClickedSlots[clickButton] = true
+                                        
+                                        pcall(function()
+                                            firesignal(clickButton.MouseButton1Click)
+                                            firesignal(clickButton.MouseButton1Down)
+                                            firesignal(clickButton.Activated)
+                                        end)
+                                        
+                                        task.wait(0.25) -- Jeda stabil agar item sempat berpindah slot
+                                    end
+                                end
+                                
+                            end
+                        end -- Akhir dari filter anti-cancel
+                        
+                    end
+                end
+            end
+            
+            if not foundItem then
+                StatusLabel:Set("Status: Selesai / Tidak ada item baru.")
+            end
+        end
+    end
+end)
