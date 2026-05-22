@@ -1,7 +1,7 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-   Name = "SPEED HUB V4 | CONTINUOUS SELECTION",
+   Name = "SPEED HUB V4 | POSITION LOCK",
    LoadingTitle = "Loading Auto Trade System...",
    LoadingSubtitle = "by Developer",
    ConfigurationSaving = { Enabled = false },
@@ -11,17 +11,24 @@ local Window = Rayfield:CreateWindow({
 local SelectedMutation = "Bacon"
 local AutoTradeEnabled = false
 
+-- Daftar semua mutasi yang akan dideteksi jika opsi "Semua Mutasi" dipilih
+local MutationList = {
+   "Bacon", "Rainbow", "Astral", "Phantom", 
+   "Plasma", "Radioactive", "Void", "Shadow", 
+   "Electrified", "Virus", "Wet", "Alien", "Enchanted"
+}
+
 -- Tabel memori agar tidak mengklik tombol yang SAMA persis berkali-kali
 local ClickedSlots = {}
 
 local TradeTab = Window:CreateTab("Trading", 4483362458)
 TradeTab:CreateSection("Mutation Filter Settings")
 
--- Dropdown Pilih Mutasi
+-- Dropdown Pilih Mutasi (Sudah ditambahkan opsi "Semua Mutasi")
 local MutationDropdown = TradeTab:CreateDropdown({
    Name = "Pilih Mutasi",
    Options = {
-      "Pilih Semua", "Bacon", "Rainbow", "Astral", "Phantom", 
+      "Semua Mutasi", "Bacon", "Rainbow", "Astral", "Phantom", 
       "Plasma", "Radioactive", "Void", "Shadow", 
       "Electrified", "Virus", "Wet", "Alien", "Enchanted"
    },
@@ -50,15 +57,16 @@ local TradeToggle = TradeTab:CreateToggle({
    end,
 })
 
--- --- LOGIKA UTAMA: NON-STOP CONTINUOUS SELECTION LOOP ---
+-- --- LOGIKA UTAMA: ENDLESS CONTINUOUS SCANNING WITH "SEMUA MUTASI" OPTION ---
 local LocalPlayer = game.Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
 task.spawn(function()
     while true do
-        task.wait(0.2) -- Jeda konstan antar putaran scan (dipercepat agar lebih agresif)
+        task.wait(0.25) -- Scan konstan dan cepat setiap 0.25 detik tanpa henti
         
         if AutoTradeEnabled then
+            StatusLabel:Set("Status: Memindai " .. SelectedMutation .. "...")
             local foundItem = false
             
             -- PENGAMAN ANTI-UNSELECT: Bersihkan tombol dari memori jika posisinya sudah naik ke atas (posY <= 200)
@@ -68,7 +76,7 @@ task.spawn(function()
                         ClickedSlots[button] = nil
                     end
                 else
-                    ClickedSlots[button] = nil 
+                    ClickedSlots[button] = nil
                 end
             end
             
@@ -76,65 +84,76 @@ task.spawn(function()
                 if gui:IsA("ScreenGui") and gui.Enabled and gui.Name ~= "Rayfield" then
                     
                     for _, object in ipairs(gui:GetDescendants()) do
-                        if object:IsA("TextButton") or object:IsA("ImageButton") then
+                        if object:IsA("TextLabel") and object.Visible then
                             
-                            local parentName = string.lower(object.Parent and object.Parent.Name or "")
-                            local buttonName = string.lower(object.Name)
+                            local textLower = string.lower(object.Text)
+                            local isTargetMutation = false
                             
-                            -- BLACKLIST SISTEM: Abaikan tombol cancel/decline/close
-                            local isCancelButton = string.find(buttonName, "cancel") or string.find(buttonName, "decline") or 
-                                                   string.find(buttonName, "close") or string.find(buttonName, "batal") or
-                                                   string.find(parentName, "action") or buttonName == "x"
-                            
-                            if not isCancelButton then
-                                local isTarget = false
-                                
-                                -- Mode 1: Pilih Semua Item di Inventory Bawah
-                                if SelectedMutation == "Pilih Semua" then
-                                    if object.Visible and object.AbsolutePosition.Y > 200 then
-                                        isTarget = true
+                            -- LOGIKA BARU: Cek filter berdasarkan pilihan Dropdown
+                            if SelectedMutation == "Semua Mutasi" then
+                                -- Jika memilih "Semua Mutasi", scan semua nama yang ada di daftar tabel MutationList
+                                for _, mutationName in ipairs(MutationList) do
+                                    if string.find(textLower, string.lower(mutationName)) then
+                                        isTargetMutation = true
+                                        break
                                     end
-                                else
-                                    -- Mode 2: Cari Mutasi Spesifik Berdasarkan Teks / Nama Objek
-                                    local hasText = object:FindFirstChildOfClass("TextLabel")
-                                    if hasText and string.find(string.lower(hasText.Text), string.lower(SelectedMutation)) then
-                                        isTarget = true
-                                    elseif string.find(string.lower(object.Name), string.lower(SelectedMutation)) then
-                                        isTarget = true
+                                end
+                            else
+                                -- Jika memilih mutasi spesifik (misal: Bacon saja), hanya scan nama tersebut
+                                if string.find(textLower, string.lower(SelectedMutation)) then
+                                    isTargetMutation = true
+                                end
+                            end
+                            
+                            -- Eksekusi jika item mutasi yang dicari cocok
+                            if isTargetMutation then
+                                -- Cari tombol slot itemnya
+                                local current = object
+                                local clickButton = nil
+                                
+                                for i = 1, 3 do
+                                    if current then
+                                        if current:IsA("TextButton") or current:IsA("ImageButton") then
+                                            clickButton = current
+                                            break
+                                        end
+                                        clickButton = current:FindFirstChildOfClass("TextButton") or current:FindFirstChildOfClass("ImageButton")
+                                        if clickButton then break end
+                                        current = current.Parent
                                     end
                                 end
                                 
-                                -- Eksekusi Klik beruntun
-                                if isTarget and not ClickedSlots[object] then
-                                    local posY = object.AbsolutePosition.Y
+                                -- Jalankan klik jika tombol ditemukan dan belum masuk daftar penawaran atas
+                                if clickButton and not ClickedSlots[clickButton] then
+                                    local posY = clickButton.AbsolutePosition.Y
                                     
-                                    if posY > 200 then
+                                    -- Kunci area inventory bawah agar item di slot atas tidak ter-unselect (posY > 200)
+                                    if posY > 200 then 
                                         foundItem = true
-                                        StatusLabel:Set("Status: Mengklik " .. object.Name)
+                                        StatusLabel:Set("Status: Mengklik " .. object.Text)
                                         
-                                        ClickedSlots[object] = true
+                                        ClickedSlots[clickButton] = true
                                         
                                         pcall(function()
-                                            firesignal(object.MouseButton1Click)
-                                            firesignal(object.MouseButton1Down)
-                                            firesignal(object.Activated)
+                                            firesignal(clickButton.MouseButton1Click)
+                                            firesignal(clickButton.MouseButton1Down)
+                                            firesignal(clickButton.Activated)
                                         end)
                                         
-                                        -- Jeda mikro (0.1 detik) antar klik item agar game tidak mendeteksi spam berlebih yang menyebabkan kick,
-                                        -- tapi tetap cukup cepat untuk memasukkan seluruh item secara beruntun.
-                                        task.wait(0.1) 
+                                        task.wait(0.1) -- Jeda mikro antar item agar proses memasukkan trade lancar
                                     end
                                 end
-                                
                             end
-                        end 
+                            
+                        end
                     end
                     
                 end
             end
             
+            -- Jika semua target mutasi saat ini sudah masuk ke slot atas, script tetap siaga memantau layar
             if not foundItem then
-                StatusLabel:Set("Status: Standby / Memantau " .. SelectedMutation .. "...")
+                StatusLabel:Set("Status: Selalu Memantau / Menunggu Item " .. SelectedMutation .. " Baru...")
             end
         end
     end
