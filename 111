@@ -18,11 +18,11 @@ local ClickedSlots = {}
 local TradeTab = Window:CreateTab("Trading", 4483362458)
 TradeTab:CreateSection("Mutation Filter Settings")
 
--- Dropdown dengan tambahan mutasi baru dan fitur Multi-Select yang diaktifkan
+-- Dropdown dengan tambahan mutasi "Volcanic" dan fitur Multi-Select aktif
 local MutationDropdown = TradeTab:CreateDropdown({
    Name = "Pilih Mutasi",
    Options = {
-      "None", "Bacon", "Golden", "Diamond", "Molten", "Rainbow", "Astral", 
+      "None", "Bacon", "Golden", "Diamond", "Molten", "Volcanic", "Rainbow", "Astral", 
       "Phantom", "Plasma", "Radioactive", "Void", "Shadow", 
       "Electrified", "Virus", "Wet", "Alien", "Enchanted"
    },
