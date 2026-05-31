@@ -18,11 +18,11 @@ local ClickedSlots = {}
 local TradeTab = Window:CreateTab("Trading", 4483362458)
 TradeTab:CreateSection("Mutation Filter Settings")
 
--- Dropdown dengan tambahan mutasi "Volcanic" dan fitur Multi-Select aktif
+-- Dropdown dengan tambahan "Chicleteira" dan fitur Multi-Select aktif
 local MutationDropdown = TradeTab:CreateDropdown({
    Name = "Pilih Mutasi",
    Options = {
-      "None", "Bacon", "Golden", "Diamond", "Molten", "Volcanic", "Rainbow", "Astral", 
+      "None", "Bacon", "Golden", "Diamond", "Molten", "Volcanic", "Chicleteira", "Rainbow", "Astral", 
       "Phantom", "Plasma", "Radioactive", "Void", "Shadow", 
       "Electrified", "Virus", "Wet", "Alien", "Enchanted"
    },
@@ -101,39 +101,4 @@ task.spawn(function()
                                 end
                                 
                                 -- Eksekusi jika tombol ketemu dan belum pernah diklik di sesi ini
-                                if clickButton and not ClickedSlots[clickButton] then
-                                    
-                                    -- DETEKSI POSISI (AbsolutePosition.Y)
-                                    -- Mengunci area bawah agar item yang sudah naik ke atas tidak diklik lagi (anti-unselect)
-                                    local posY = clickButton.AbsolutePosition.Y
-                                    
-                                    if posY > 200 then 
-                                        foundItem = true
-                                        StatusLabel:Set("Status: Mengklik " .. object.Text)
-                                        
-                                        -- Catat tombol ini agar tidak disentuh lagi
-                                        ClickedSlots[clickButton] = true
-                                        
-                                        pcall(function()
-                                            firesignal(clickButton.MouseButton1Click)
-                                            firesignal(clickButton.MouseButton1Down)
-                                            firesignal(clickButton.Activated)
-                                        end)
-                                        
-                                        task.wait(0.25) -- Jeda stabil agar item sempat berpindah slot
-                                    end
-                                end
-                            end
-                            
-                        end
-                    end
-                    
-                end
-            end
-            
-            if not foundItem then
-                StatusLabel:Set("Status: Selesai / Tidak ada mutasi baru.")
-            end
-        end
-    end
-end)
+                                if clickButton and not ClickedSlots
