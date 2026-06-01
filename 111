@@ -8,41 +8,35 @@ local Window = Rayfield:CreateWindow({
    KeySystem = false
 })
 
--- Menggunakan tabel untuk menyimpan banyak mutasi yang dicentang secara bersamaan
 local SelectedMutations = { ["Bacon"] = true }
 local AutoTradeEnabled = false
 
--- Tabel memori agar tidak mengklik tombol yang SAMA persis berkali-kali
 local ClickedSlots = {}
 
 local TradeTab = Window:CreateTab("Trading", 4483362458)
 TradeTab:CreateSection("Mutation Filter Settings")
 
--- Dropdown dengan tambahan mutasi "Volcanic" dan fitur Multi-Select aktif
 local MutationDropdown = TradeTab:CreateDropdown({
    Name = "Pilih Mutasi",
    Options = {
-      "None", "Bacon", "Golden", "Diamond", "Molten", "Volcanic", "Rainbow", "Astral", 
+      "None", "Bacon", "Golden", "Diamond", "Molten", "Volcanic", "Chicleteira", "Trippi", "Agarrini", "Rainbow", "Astral", 
       "Phantom", "Plasma", "Radioactive", "Void", "Shadow", 
       "Electrified", "Virus", "Wet", "Alien", "Enchanted"
    },
    CurrentOption = {"Bacon"},
-   MultipleOptions = true, -- Mengaktifkan fitur multi-select asli Rayfield
+   MultipleOptions = true,
    Callback = function(Options)
       SelectedMutations = {}
-      ClickedSlots = {} -- Reset memori saat ganti pilihan agar bisa memproses jenis baru
+      ClickedSlots = {} 
       
-      -- Memasukkan semua opsi yang dicentang ke dalam daftar filter aktif
       for _, optionName in ipairs(Options) do
          SelectedMutations[optionName] = true
       end
    end,
 })
 
--- Label Status
 local StatusLabel = TradeTab:CreateLabel("Status: Auto Trade Mati")
 
--- Toggle Auto Trade
 local TradeToggle = TradeTab:CreateToggle({
    Name = "Auto Trade",
    CurrentValue = false,
@@ -51,12 +45,12 @@ local TradeToggle = TradeTab:CreateToggle({
       AutoTradeEnabled = Value
       if not Value then
          StatusLabel:Set("Status: Auto Trade Mati")
-         ClickedSlots = {} -- Reset saat dimatikan
+         ClickedSlots = {} 
       end
    end,
 })
 
--- --- LOGIKA UTAMA (TETAP SAMA): LOCK POSISI LAYAR BAWAH ---
+-- --- LOGIKA UTAMA: LOCK POSISI LAYAR BAWAH ---
 local LocalPlayer = game.Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
@@ -70,25 +64,31 @@ task.spawn(function()
                 if gui:IsA("ScreenGui") and gui.Enabled then
                     
                     for _, object in ipairs(gui:GetDescendants()) do
-                        if object:IsA("TextLabel") and object.Visible then
+                        if (object:IsA("TextLabel") or object:IsA("TextButton") or object:IsA("ImageLabel") or object:IsA("ImageButton")) and object.Visible then
                             
-                            -- Sistem filter multi-select tanpa merusak alur logika dasar asli script kamu
                             local isTarget = false
-                            local textLower = string.lower(object.Text)
+                            local textContent = ""
+                            if object:IsA("TextLabel") or object:IsA("TextButton") then
+                                textContent = string.lower(object.Text)
+                            end
+                            local nameContent = string.lower(object.Name)
                             
                             for mutationName, active in pairs(SelectedMutations) do
-                                if active and string.find(textLower, string.lower(mutationName)) then
-                                    isTarget = true
-                                    break -- Keluar dari pengecekan nama jika salah satu sudah cocok
+                                if active then
+                                    local mutLower = string.lower(mutationName)
+                                    if string.find(textContent, mutLower) or string.find(nameContent, mutLower) then
+                                        isTarget = true
+                                        break
+                                    end
                                 end
                             end
                             
                             if isTarget then
-                                -- Cari tombol slot itemnya
+                                -- Memperluas pencarian slot dari 3 menjadi 5 tingkat (Berjaga-jaga UI game lebih dalam)
                                 local current = object
                                 local clickButton = nil
                                 
-                                for i = 1, 3 do
+                                for i = 1, 5 do
                                     if current then
                                         if current:IsA("TextButton") or current:IsA("ImageButton") then
                                             clickButton = current
@@ -100,27 +100,37 @@ task.spawn(function()
                                     end
                                 end
                                 
-                                -- Eksekusi jika tombol ketemu dan belum pernah diklik di sesi ini
                                 if clickButton and not ClickedSlots[clickButton] then
-                                    
-                                    -- DETEKSI POSISI (AbsolutePosition.Y)
-                                    -- Mengunci area bawah agar item yang sudah naik ke atas tidak diklik lagi (anti-unselect)
                                     local posY = clickButton.AbsolutePosition.Y
                                     
                                     if posY > 200 then 
                                         foundItem = true
-                                        StatusLabel:Set("Status: Mengklik " .. object.Text)
+                                        StatusLabel:Set("Status: Mengklik Slot!")
                                         
-                                        -- Catat tombol ini agar tidak disentuh lagi
                                         ClickedSlots[clickButton] = true
                                         
+                                        -- SISTEM KLIK YANG LEBIH KUAT (Anti Gagal untuk Eksekutor Mobile)
                                         pcall(function()
-                                            firesignal(clickButton.MouseButton1Click)
-                                            firesignal(clickButton.MouseButton1Down)
-                                            firesignal(clickButton.Activated)
+                                            -- 1. Jalur Sinyal Standar (Ditambah MouseButton1Up)
+                                            if firesignal then
+                                                firesignal(clickButton.MouseButton1Click)
+                                                firesignal(clickButton.MouseButton1Down)
+                                                firesignal(clickButton.MouseButton1Up) 
+                                                firesignal(clickButton.Activated)
+                                            end
+                                            
+                                            -- 2. Jalur Bypass Langsung ke Fungsi (Sangat Ampuh)
+                                            if getconnections then
+                                                for _, conn in pairs(getconnections(clickButton.MouseButton1Click)) do
+                                                    if conn.Function then conn.Function() end
+                                                end
+                                                for _, conn in pairs(getconnections(clickButton.Activated)) do
+                                                    if conn.Function then conn.Function() end
+                                                end
+                                            end
                                         end)
                                         
-                                        task.wait(0.25) -- Jeda stabil agar item sempat berpindah slot
+                                        task.wait(0.25)
                                     end
                                 end
                             end
