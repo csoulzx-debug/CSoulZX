@@ -1,16 +1,21 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-   Name = "SPEED HUB V4 | POSITION LOCK",
+   Name = "SPEED HUB V4 | TRADING FIXED",
    LoadingTitle = "Loading Auto Trade System...",
    LoadingSubtitle = "by Developer",
    ConfigurationSaving = { Enabled = false },
    KeySystem = false
 })
 
+-- TABEL PEMETAAN ID ASSET MUTASI (Bacon & Volcanic)
+local MutationIds = {
+   ["Bacon"] = "108280271882625",
+   ["Volcanic"] = "113806663391044",
+}
+
 local SelectedMutations = { ["Bacon"] = true }
 local AutoTradeEnabled = false
-
 local ClickedSlots = {}
 
 local TradeTab = Window:CreateTab("Trading", 4483362458)
@@ -28,7 +33,6 @@ local MutationDropdown = TradeTab:CreateDropdown({
    Callback = function(Options)
       SelectedMutations = {}
       ClickedSlots = {} 
-      
       for _, optionName in ipairs(Options) do
          SelectedMutations[optionName] = true
       end
@@ -40,43 +44,52 @@ local StatusLabel = TradeTab:CreateLabel("Status: Auto Trade Mati")
 local TradeToggle = TradeTab:CreateToggle({
    Name = "Auto Trade",
    CurrentValue = false,
-   Flag = "AutoTradeToggle",
    Callback = function(Value)
       AutoTradeEnabled = Value
-      if not Value then
+      if Value then
+         StatusLabel:Set("Status: Auto Trade Aktif!")
+      else
          StatusLabel:Set("Status: Auto Trade Mati")
          ClickedSlots = {} 
       end
    end,
 })
 
--- --- LOGIKA UTAMA: LOCK POSISI LAYAR BAWAH ---
+-- --- LOGIKA UTAMA: SCANNING BERBASIS ID ASSET ---
 local LocalPlayer = game.Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
 task.spawn(function()
-    while task.wait(0.4) do
+    while true do
+        task.wait(0.4)
         if AutoTradeEnabled then
-            StatusLabel:Set("Status: Memindai Mutasi yang Dipilih...")
+            StatusLabel:Set("Status: Memindai Slot Trade...")
             local foundItem = false
             
             for _, gui in ipairs(PlayerGui:GetChildren()) do
-                if gui:IsA("ScreenGui") and gui.Enabled then
+                if gui:IsA("ScreenGui") and gui.Enabled and gui.Name ~= "Rayfield" then
                     
                     for _, object in ipairs(gui:GetDescendants()) do
-                        if (object:IsA("TextLabel") or object:IsA("TextButton") or object:IsA("ImageLabel") or object:IsA("ImageButton")) and object.Visible then
+                        if (object:IsA("TextLabel") or object:IsA("ImageLabel") or object:IsA("TextButton") or object:IsA("ImageButton")) and object.Visible then
                             
                             local isTarget = false
-                            local textContent = ""
-                            if object:IsA("TextLabel") or object:IsA("TextButton") then
-                                textContent = string.lower(object.Text)
-                            end
+                            local textContent = (object:IsA("TextLabel") or object:IsA("TextButton")) and string.lower(object.Text) or ""
                             local nameContent = string.lower(object.Name)
+                            local imageContent = (object:IsA("ImageLabel") or object:IsA("ImageButton")) and string.lower(object.Image) or ""
+                            local parentName = object.Parent and string.lower(object.Parent.Name) or ""
                             
                             for mutationName, active in pairs(SelectedMutations) do
                                 if active then
                                     local mutLower = string.lower(mutationName)
-                                    if string.find(textContent, mutLower) or string.find(nameContent, mutLower) then
+                                    local targetId = MutationIds[mutationName]
+                                    
+                                    -- SISTEM COCOK AKURAT:
+                                    -- 1. Jalur Utama: Jika mutasi terdaftar di tabel ID (Bacon/Volcanic), cari nomor ID di properti Image.
+                                    -- 2. Jalur Cadangan: Jika belum ada ID, cari berdasarkan kecocokan nama teks biasa.
+                                    if targetId and string.find(imageContent, targetId) then
+                                        isTarget = true
+                                        break
+                                    elseif not targetId and (string.find(textContent, mutLower) or string.find(nameContent, mutLower) or string.find(imageContent, mutLower) or string.find(parentName, mutLower)) then
                                         isTarget = true
                                         break
                                     end
@@ -84,7 +97,6 @@ task.spawn(function()
                             end
                             
                             if isTarget then
-                                -- Memperluas pencarian slot dari 3 menjadi 5 tingkat (Berjaga-jaga UI game lebih dalam)
                                 local current = object
                                 local clickButton = nil
                                 
@@ -101,17 +113,14 @@ task.spawn(function()
                                 end
                                 
                                 if clickButton and not ClickedSlots[clickButton] then
-                                    local posY = clickButton.AbsolutePosition.Y
-                                    
-                                    if posY > 200 then 
-                                        foundItem = true
-                                        StatusLabel:Set("Status: Mengklik Slot!")
+                                    local btnName = string.lower(clickButton.Name)
+                                    if not string.find(btnName, "accept") and not string.find(btnName, "cancel") and not string.find(btnName, "search") then
                                         
+                                        foundItem = true
+                                        StatusLabel:Set("Status: Mengklik Item Trade...")
                                         ClickedSlots[clickButton] = true
                                         
-                                        -- SISTEM KLIK YANG LEBIH KUAT (Anti Gagal untuk Eksekutor Mobile)
                                         pcall(function()
-                                            -- 1. Jalur Sinyal Standar (Ditambah MouseButton1Up)
                                             if firesignal then
                                                 firesignal(clickButton.MouseButton1Click)
                                                 firesignal(clickButton.MouseButton1Down)
@@ -119,7 +128,6 @@ task.spawn(function()
                                                 firesignal(clickButton.Activated)
                                             end
                                             
-                                            -- 2. Jalur Bypass Langsung ke Fungsi (Sangat Ampuh)
                                             if getconnections then
                                                 for _, conn in pairs(getconnections(clickButton.MouseButton1Click)) do
                                                     if conn.Function then conn.Function() end
@@ -142,7 +150,7 @@ task.spawn(function()
             end
             
             if not foundItem then
-                StatusLabel:Set("Status: Selesai / Tidak ada mutasi baru.")
+                StatusLabel:Set("Status: Aktif | Mencari Mutasi Terpilih...")
             end
         end
     end
