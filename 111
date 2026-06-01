@@ -18,21 +18,20 @@ local ClickedSlots = {}
 local TradeTab = Window:CreateTab("Trading", 4483362458)
 TradeTab:CreateSection("Mutation Filter Settings")
 
--- Dropdown dengan tambahan "Chicleteira" dan fitur Multi-Select aktif
+-- Dropdown Multi-Select lengkap
 local MutationDropdown = TradeTab:CreateDropdown({
    Name = "Pilih Mutasi",
    Options = {
-      "None", "Bacon", "Golden", "Diamond", "Molten", "Volcanic", "Chicleteira", "Rainbow", "Astral", 
+      "None", "Bacon", "Golden", "Diamond", "Molten", "Volcanic", "Chicleteira", "Trippi", "Agarrini", "Rainbow", "Astral", 
       "Phantom", "Plasma", "Radioactive", "Void", "Shadow", 
       "Electrified", "Virus", "Wet", "Alien", "Enchanted"
    },
    CurrentOption = {"Bacon"},
-   MultipleOptions = true, -- Mengaktifkan fitur multi-select asli Rayfield
+   MultipleOptions = true,
    Callback = function(Options)
       SelectedMutations = {}
       ClickedSlots = {} -- Reset memori saat ganti pilihan agar bisa memproses jenis baru
       
-      -- Memasukkan semua opsi yang dicentang ke dalam daftar filter aktif
       for _, optionName in ipairs(Options) do
          SelectedMutations[optionName] = true
       end
@@ -70,21 +69,32 @@ task.spawn(function()
                 if gui:IsA("ScreenGui") and gui.Enabled then
                     
                     for _, object in ipairs(gui:GetDescendants()) do
-                        if object:IsA("TextLabel") and object.Visible then
+                        -- RADAR DIPERLUAS: Mengecek TextLabel, TextButton, dan Image/ImageButton 
+                        -- untuk menangkap item yang menggunakan gambar/icon alih-alih teks tulisan
+                        if (object:IsA("TextLabel") or object:IsA("TextButton") or object:IsA("ImageLabel") or object:IsA("ImageButton")) and object.Visible then
                             
-                            -- Sistem filter multi-select tanpa merusak alur logika dasar asli script kamu
                             local isTarget = false
-                            local textLower = string.lower(object.Text)
+                            
+                            -- Mengambil teks (jika ada) dan mengambil nama asli dari objek UI
+                            local textContent = ""
+                            if object:IsA("TextLabel") or object:IsA("TextButton") then
+                                textContent = string.lower(object.Text)
+                            end
+                            local nameContent = string.lower(object.Name)
                             
                             for mutationName, active in pairs(SelectedMutations) do
-                                if active and string.find(textLower, string.lower(mutationName)) then
-                                    isTarget = true
-                                    break -- Keluar dari pengecekan nama jika salah satu sudah cocok
+                                if active then
+                                    local mutLower = string.lower(mutationName)
+                                    -- SCRIPT MENCARI DI DUA TEMPAT: Di tulisan teksnya, dan di nama objek gambarnya
+                                    if string.find(textContent, mutLower) or string.find(nameContent, mutLower) then
+                                        isTarget = true
+                                        break
+                                    end
                                 end
                             end
                             
                             if isTarget then
-                                -- Cari tombol slot itemnya
+                                -- Cari tombol slot itemnya (Struktur Asli Tidak Diubah)
                                 local current = object
                                 local clickButton = nil
                                 
@@ -109,7 +119,7 @@ task.spawn(function()
                                     
                                     if posY > 200 then 
                                         foundItem = true
-                                        StatusLabel:Set("Status: Mengklik " .. object.Text)
+                                        StatusLabel:Set("Status: Mengklik Slot!")
                                         
                                         -- Catat tombol ini agar tidak disentuh lagi
                                         ClickedSlots[clickButton] = true
