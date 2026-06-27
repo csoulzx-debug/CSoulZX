@@ -1,18 +1,26 @@
--- SPEED HUB V4: ALL-IN-ONE PERFORMANCE & VISUAL HUB (MOBILE OPTIMIZED)
-local Material = loadstring(game:HttpGet("https://raw.githubusercontent.com/Kinlei/MaterialLua/master/Module.lua"))()
+-- SPEED HUB V4: RAYFIELD UI EDITION (MOBILE OPTIMIZED)
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
--- Inisialisasi UI Window Utama
-local UI = Material.Load({
-    Title = "SPEED HUB V4",
-    Style = 3,
-    Size = UDim2.fromOffset(400, 360), -- Ukuran pas untuk layar HP
-    TextColor = Color3.fromRGB(255, 255, 255)
+-- Membuat Window Utama Rayfield
+local Window = Rayfield:CreateWindow({
+    Name = "SPEED HUB V4",
+    LoadingTitle = "SPEED HUB V4",
+    LoadingSubtitle = "by Mobile Developer",
+    ConfigurationSaving = {
+        Enabled = false -- Dimatikan agar tidak menimbun cache di HP
+    },
+    Discord = {
+        Enabled = false,
+        Invite = "",
+        RememberJoins = true
+    },
+    KeySystem = false -- Tanpa sistem kunci agar langsung terbuka
 })
 
--- Membuat 3 Tab Terpisah
-local MainTab = UI.New({ Title = "Main" })
-local VisualTab = UI.New({ Title = "Visual / ESP" })
-local OptTab = UI.New({ Title = "Optimization" })
+-- Membuat 3 Tab Kategori
+local MainTab = Window:CreateTab("Main", nil)
+local VisualTab = Window:CreateTab("Visual / ESP", nil)
+local OptTab = Window:CreateTab("Optimization", nil)
 
 -- Variabel Kontrol Global
 _G.SuperAntiLag = false
@@ -120,7 +128,6 @@ local function stopAllAnimations()
     end
 end
 
--- Deteksi jika ada animasi baru yang dipaksa berjalan oleh game
 Workspace.DescendantAdded:Connect(function(descendant)
     if _G.NoAnimations and descendant:IsA("AnimationTrack") then
         pcall(function() descendant:Stop() end)
@@ -128,47 +135,50 @@ Workspace.DescendantAdded:Connect(function(descendant)
 end)
 
 -------------------------------------------------------------------------
--- [4. SETTING TOMBOL / TOGGLE UI]
+-- [4. ELEMEN TOGGLE RAYFIELD UI]
 -------------------------------------------------------------------------
 
--- TAB 1: MAIN (Anti-Lag 100%)
-MainTab.Toggle({
-    Text = "Super Hide All (Anti-Lag 100%)",
-    Callback = function(value)
-        _G.SuperAntiLag = value
+-- TAB 1: MAIN
+MainTab:CreateToggle({
+    Name = "Super Hide All (Anti-Lag 100%)",
+    CurrentValue = false,
+    Flag = "SuperHideToggle",
+    Callback = function(Value)
+        _G.SuperAntiLag = Value
         pcall(applySuperHide)
     end,
-    Enabled = false
 })
 
 -- TAB 2: VISUAL / ESP
-VisualTab.Toggle({
-    Text = "Enable Model Name ESP",
-    Callback = function(value)
-        _G.ModelEspEnabled = value
-        if not value then
+VisualTab:CreateToggle({
+    Name = "Enable Model Name ESP",
+    CurrentValue = false,
+    Flag = "EspToggle",
+    Callback = function(Value)
+        _G.ModelEspEnabled = Value
+        if not Value then
             pcall(removeAllEsp)
         else
             pcall(runEspSystem)
         end
     end,
-    Enabled = false
 })
 
--- TAB 3: OPTIMIZATION (Animasi)
-OptTab.Toggle({
-    Text = "Disable All Animations",
-    Callback = function(value)
-        _G.NoAnimations = value
-        if value then
+-- TAB 3: OPTIMIZATION
+OptTab:CreateToggle({
+    Name = "Disable All Animations",
+    CurrentValue = false,
+    Flag = "AnimToggle",
+    Callback = function(Value)
+        _G.NoAnimations = Value
+        if Value then
             pcall(stopAllAnimations)
         end
     end,
-    Enabled = false
 })
 
 -------------------------------------------------------------------------
--- [5. LOOP LATAR BELAKANG REFRESH SYSTEM]
+-- [5. LOOP REFRESH BACKGROUND]
 -------------------------------------------------------------------------
 task.spawn(function()
     while task.wait(1.5) do
@@ -178,4 +188,9 @@ task.spawn(function()
     end
 end)
 
-print("SPEED HUB V4: Semua menu dan opsi berhasil dimuat dengan sempurna!")
+Rayfield:Notify({
+    Title = "SPEED HUB V4",
+    Content = "Rayfield UI Berhasil Dimuat!",
+    Duration = 3,
+    Image = 4483362458,
+})
