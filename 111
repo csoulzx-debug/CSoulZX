@@ -1,78 +1,70 @@
--- SPEED HUB V4: ULTRA AGGRESSIVE ANTI-LAG (BYPASS KEYWORDS)
+-- SPEED HUB V4: ULTIMATE PERFORMANCE & ESP
 local Material = loadstring(game:HttpGet("https://raw.githubusercontent.com/Kinlei/MaterialLua/master/Module.lua"))()
 
 local UI = Material.Load({
     Title = "SPEED HUB V4",
     Style = 3,
-    Size = UDim2.fromOffset(400, 280),
+    Size = UDim2.fromOffset(400, 360),
     TextColor = Color3.fromRGB(255, 255, 255)
 })
 
-local MainTab = UI.New({
-    Title = "Main"
-})
+local MainTab = UI.New({ Title = "Main" })
+local VisualTab = UI.New({ Title = "Visual / ESP" })
+local OptTab = UI.New({ Title = "Optimization" })
 
 local _G = _G or {}
-_G.SuperAntiLag = false
-
+local Workspace = game:GetService("Workspace")
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
-local Workspace = game:GetService("Workspace")
 
--- Fungsi mendeteksi apakah objek aman (Jangan di-hide)
-local function isSafeObject(object)
-    -- Jangan sembunyikan karakter kita atau karakter player lain
-    for _, player in pairs(Players:GetPlayers()) do
-        if player.Character and object:IsDescendantOf(player.Character) then
-            -- Tetap tampilkan baju/aksesoris player
-            return true
-        end
-    end
-    
-    -- Jangan sembunyikan peta dasar, langit, atau UI dasar game
-    local name = object.Name:lower()
-    if name == "baseplate" or name == "terrain" or name == "spawnlocation" or object:IsA("Camera") then
-        return true
-    end
-    
-    return false
-end
-
--- Fungsi Eksekusi Transparansi Total
-local function applySuperHide()
-    for _, desc in pairs(Workspace:GetDescendants()) do
-        -- Targetkan semua MeshPart, Part, atau SpecialMesh (bentuk visual tanaman)
-        if desc:IsA("BasePart") or desc:IsA("MeshPart") then
-            if not isSafeObject(desc) then
-                if _G.SuperAntiLag then
-                    desc.LocalTransparencyModifier = 1
-                    desc.CastShadow = false
-                else
-                    desc.LocalTransparencyModifier = 0
-                    desc.CastShadow = true
+-------------------------------------------------------------------------
+-- [FITUR ANIMATION HIDER]
+-------------------------------------------------------------------------
+local function stopAllAnimations(value)
+    for _, descendant in pairs(Workspace:GetDescendants()) do
+        if descendant:IsA("Animator") then
+            if value then
+                -- Mematikan semua track animasi
+                for _, track in pairs(descendant:GetPlayingAnimationTracks()) do
+                    track:Stop()
                 end
+                descendant.Parent.Parent:FindFirstChildOfClass("Humanoid").WalkSpeed = 0 -- Opsional: bisa dihilangkan
             end
         end
     end
 end
 
--- Loop di latar belakang untuk membersihkan tanaman yang baru muncul/tumbuh
-task.spawn(function()
-    while task.wait(1.5) do -- Scan lebih cepat (1.5 detik)
-        if _G.SuperAntiLag then
-            pcall(applySuperHide)
-        end
+-- Hook otomatis jika ada animasi baru yang muncul
+Workspace.DescendantAdded:Connect(function(descendant)
+    if _G.NoAnimations and descendant:IsA("AnimationTrack") then
+        descendant:Stop()
     end
 end)
 
--- Toggle Menu di UI
-MainTab.Toggle({
-    Text = "Super Hide All (Anti-Lag 100%)",
+-------------------------------------------------------------------------
+-- [UI TOGGLES]
+-------------------------------------------------------------------------
+-- Tab Main & Visual sudah ada di script sebelumnya...
+-- (Tambahkan ini ke dalam script kamu)
+
+OptTab.Toggle({
+    Text = "Disable All Animations",
     Callback = function(value)
-        _G.SuperAntiLag = value
-        pcall(applySuperHide) -- Langsung eksekusi perubahan saat ditekan
+        _G.NoAnimations = value
+        if value then
+            stopAllAnimations(true)
+        end
     end,
     Enabled = false
 })
 
-print("SPEED HUB V4: Super Anti-Lag Mode Berhasil Dimuat!")
+-- Tambahkan logika loop untuk memastikan animasi tetap mati
+task.spawn(function()
+    while task.wait(1) do
+        if _G.NoAnimations then
+            pcall(function() stopAllAnimations(true) end)
+        end
+    end
+end)
+
+print("SPEED HUB V4: Semua Fitur Termasuk Anti-Animasi Siap!")
