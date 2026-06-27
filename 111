@@ -1,157 +1,84 @@
-local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+-- MENGGUNAKAN REDFIELD UI LIBRARY (MOBILE OPTIMIZED)
+local Material = loadstring(game:HttpGet("https://raw.githubusercontent.com/Kinlei/MaterialLua/master/Module.lua"))()
 
-local Window = Rayfield:CreateWindow({
-   Name = "SPEED HUB V4 | TRADING FIXED",
-   LoadingTitle = "Loading Auto Trade System...",
-   LoadingSubtitle = "by Developer",
-   ConfigurationSaving = { Enabled = false },
-   KeySystem = false
+-- Inisialisasi UI Window
+local UI = Material.Load({
+    Title = "SPEED HUB V4",
+    Style = 3,
+    Size = UDim2.fromOffset(400, 280), -- Ukuran pas untuk layar HP
+    TextColor = Color3.fromRGB(255, 255, 255)
 })
 
--- TABEL PEMETAAN ID ASSET MUTASI (Bacon & Volcanic)
-local MutationIds = {
-   ["Bacon"] = "108280271882625",
-   ["Volcanic"] = "113806663391044",
+-- Membuat Tab Utama
+local MainTab = UI.New({
+    Title = "Main"
+})
+
+-- Variabel Kontrol
+local _G = _G or {}
+_G.AntiLagEnabled = false
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local Workspace = game:GetService("Workspace")
+
+-- Daftar kata kunci nama objek tanaman/buah orang lain
+local TARGET_NAMES = {
+    "Tanaman", 
+    "Buah",
+    "Garden",
+    "Plant",
+    "Fruit"
 }
 
-local SelectedMutations = { ["Bacon"] = true }
-local AutoTradeEnabled = false
-local ClickedSlots = {}
+-- Fungsi memeriksa kepemilikan objek
+local function isNotMine(object)
+    if LocalPlayer.Character and object:IsDescendantOf(LocalPlayer.Character) then
+        return false
+    end
+    
+    for _, name in pairs(TARGET_NAMES) do
+        if string.find(object.Name:lower(), name:lower()) or (object.Parent and string.find(object.Parent.Name:lower(), name:lower())) then
+            return true
+        end
+    end
+    return false
+end
 
-local TradeTab = Window:CreateTab("Trading", 4483362458)
-TradeTab:CreateSection("Mutation Filter Settings")
-
-local MutationDropdown = TradeTab:CreateDropdown({
-   Name = "Pilih Mutasi",
-   Options = {
-      "None", "Bacon", "Golden", "Diamond", "Molten", "Volcanic", "Chicleteira", "Trippi", "Agarrini", "Rainbow", "Astral", 
-      "Phantom", "Plasma", "Radioactive", "Void", "Shadow", 
-      "Electrified", "Virus", "Wet", "Alien", "Enchanted"
-   },
-   CurrentOption = {"Bacon"},
-   MultipleOptions = true,
-   Callback = function(Options)
-      SelectedMutations = {}
-      ClickedSlots = {} 
-      for _, optionName in ipairs(Options) do
-         SelectedMutations[optionName] = true
-      end
-   end,
-})
-
-local StatusLabel = TradeTab:CreateLabel("Status: Auto Trade Mati")
-
-local TradeToggle = TradeTab:CreateToggle({
-   Name = "Auto Trade",
-   CurrentValue = false,
-   Callback = function(Value)
-      AutoTradeEnabled = Value
-      if Value then
-         StatusLabel:Set("Status: Auto Trade Aktif!")
-      else
-         StatusLabel:Set("Status: Auto Trade Mati")
-         ClickedSlots = {} 
-      end
-   end,
-})
-
--- --- LOGIKA UTAMA: SCANNING BERBASIS ID ASSET ---
-local LocalPlayer = game.Players.LocalPlayer
-local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
-
-task.spawn(function()
-    while true do
-        task.wait(0.4)
-        if AutoTradeEnabled then
-            StatusLabel:Set("Status: Memindai Slot Trade...")
-            local foundItem = false
-            
-            for _, gui in ipairs(PlayerGui:GetChildren()) do
-                if gui:IsA("ScreenGui") and gui.Enabled and gui.Name ~= "Rayfield" then
-                    
-                    for _, object in ipairs(gui:GetDescendants()) do
-                        if (object:IsA("TextLabel") or object:IsA("ImageLabel") or object:IsA("TextButton") or object:IsA("ImageButton")) and object.Visible then
-                            
-                            local isTarget = false
-                            local textContent = (object:IsA("TextLabel") or object:IsA("TextButton")) and string.lower(object.Text) or ""
-                            local nameContent = string.lower(object.Name)
-                            local imageContent = (object:IsA("ImageLabel") or object:IsA("ImageButton")) and string.lower(object.Image) or ""
-                            local parentName = object.Parent and string.lower(object.Parent.Name) or ""
-                            
-                            for mutationName, active in pairs(SelectedMutations) do
-                                if active then
-                                    local mutLower = string.lower(mutationName)
-                                    local targetId = MutationIds[mutationName]
-                                    
-                                    -- SISTEM COCOK AKURAT:
-                                    -- 1. Jalur Utama: Jika mutasi terdaftar di tabel ID (Bacon/Volcanic), cari nomor ID di properti Image.
-                                    -- 2. Jalur Cadangan: Jika belum ada ID, cari berdasarkan kecocokan nama teks biasa.
-                                    if targetId and string.find(imageContent, targetId) then
-                                        isTarget = true
-                                        break
-                                    elseif not targetId and (string.find(textContent, mutLower) or string.find(nameContent, mutLower) or string.find(imageContent, mutLower) or string.find(parentName, mutLower)) then
-                                        isTarget = true
-                                        break
-                                    end
-                                end
-                            end
-                            
-                            if isTarget then
-                                local current = object
-                                local clickButton = nil
-                                
-                                for i = 1, 5 do
-                                    if current then
-                                        if current:IsA("TextButton") or current:IsA("ImageButton") then
-                                            clickButton = current
-                                            break
-                                        end
-                                        clickButton = current:FindFirstChildOfClass("TextButton") or current:FindFirstChildOfClass("ImageButton")
-                                        if clickButton then break end
-                                        current = current.Parent
-                                    end
-                                end
-                                
-                                if clickButton and not ClickedSlots[clickButton] then
-                                    local btnName = string.lower(clickButton.Name)
-                                    if not string.find(btnName, "accept") and not string.find(btnName, "cancel") and not string.find(btnName, "search") then
-                                        
-                                        foundItem = true
-                                        StatusLabel:Set("Status: Mengklik Item Trade...")
-                                        ClickedSlots[clickButton] = true
-                                        
-                                        pcall(function()
-                                            if firesignal then
-                                                firesignal(clickButton.MouseButton1Click)
-                                                firesignal(clickButton.MouseButton1Down)
-                                                firesignal(clickButton.MouseButton1Up) 
-                                                firesignal(clickButton.Activated)
-                                            end
-                                            
-                                            if getconnections then
-                                                for _, conn in pairs(getconnections(clickButton.MouseButton1Click)) do
-                                                    if conn.Function then conn.Function() end
-                                                end
-                                                for _, conn in pairs(getconnections(clickButton.Activated)) do
-                                                    if conn.Function then conn.Function() end
-                                                end
-                                            end
-                                        end)
-                                        
-                                        task.wait(0.25)
-                                    end
-                                end
-                            end
-                            
-                        end
-                    end
-                    
+-- Fungsi menyembunyikan atau memunculkan kembali objek
+local function updateVisibility()
+    for _, desc in pairs(Workspace:GetDescendants()) do
+        if desc:IsA("BasePart") or desc:IsA("MeshPart") then
+            if isNotMine(desc) then
+                if _G.AntiLagEnabled then
+                    desc.LocalTransparencyModifier = 1
+                    desc.CastShadow = false
+                else
+                    desc.LocalTransparencyModifier = 0
+                    desc.CastShadow = true
                 end
-            end
-            
-            if not foundItem then
-                StatusLabel:Set("Status: Aktif | Mencari Mutasi Terpilih...")
             end
         end
     end
+end
+
+-- Loop latar belakang yang berjalan jika fitur diaktifkan
+task.spawn(function()
+    while task.wait(3) do
+        if _G.AntiLagEnabled then
+            pcall(updateVisibility)
+        end
+    end
 end)
+
+-- Membuat Toggle di dalam UI
+MainTab.Toggle({
+    Text = "Hide Other Players' Garden (Anti-Lag)",
+    Callback = function(value)
+        _G.AntiLagEnabled = value
+        pcall(updateVisibility) -- Langsung eksekusi perubahan saat tombol ditekan
+    end,
+    Enabled = false
+})
+
+print("SPEED HUB V4: Redfield UI berhasil dimuat!")
