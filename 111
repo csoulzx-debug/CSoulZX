@@ -1,55 +1,59 @@
--- MENGGUNAKAN REDFIELD UI LIBRARY (MOBILE OPTIMIZED)
+-- SPEED HUB V4: TOTAL ANTI-LAG SYSTEM (ALL PLANTS HIDER)
 local Material = loadstring(game:HttpGet("https://raw.githubusercontent.com/Kinlei/MaterialLua/master/Module.lua"))()
 
 -- Inisialisasi UI Window
 local UI = Material.Load({
     Title = "SPEED HUB V4",
     Style = 3,
-    Size = UDim2.fromOffset(400, 280), -- Ukuran pas untuk layar HP
+    Size = UDim2.fromOffset(400, 280),
     TextColor = Color3.fromRGB(255, 255, 255)
 })
 
--- Membuat Tab Utama
 local MainTab = UI.New({
     Title = "Main"
 })
 
--- Variabel Kontrol
+-- Variabel Kontrol Global
 local _G = _G or {}
 _G.AntiLagEnabled = false
 
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
 local Workspace = game:GetService("Workspace")
 
--- Daftar kata kunci nama objek tanaman/buah orang lain
-local TARGET_NAMES = {
-    "Tanaman", 
-    "Buah",
-    "Garden",
-    "Plant",
-    "Fruit"
+-- Kamus kata kunci super luas (deteksi model, folder, atau part)
+local AGGRESSIVE_KEYWORDS = {
+    "tanaman", "buah", "garden", "plant", "fruit", "crop", "seed", 
+    "flower", "bunga", "pohon", "tree", "plot", "dirt", "farm",
+    "harvest", "berry", "tomato", "carrot", "apple", "wheat",
+    "fertilizer", "pot", "planter", "vegetable", "daisy"
 }
 
--- Fungsi memeriksa kepemilikan objek
-local function isNotMine(object)
-    if LocalPlayer.Character and object:IsDescendantOf(LocalPlayer.Character) then
-        return false
-    end
-    
-    for _, name in pairs(TARGET_NAMES) do
-        if string.find(object.Name:lower(), name:lower()) or (object.Parent and string.find(object.Parent.Name:lower(), name:lower())) then
+-- Fungsi deteksi berdasarkan nama objek atau nama induknya
+local function checkTarget(object)
+    local objName = object.Name:lower()
+    for _, keyword in pairs(AGGRESSIVE_KEYWORDS) do
+        if string.find(objName, keyword) then
             return true
         end
     end
+    
+    -- Cek juga nama parent-nya (jika part berada di dalam Model tanaman)
+    if object.Parent then
+        local parentName = object.Parent.Name:lower()
+        for _, keyword in pairs(AGGRESSIVE_KEYWORDS) do
+            if string.find(parentName, keyword) then
+                return true
+            end
+        end
+    end
+    
     return false
 end
 
--- Fungsi menyembunyikan atau memunculkan kembali objek
+-- Fungsi eksekutor transparansi
 local function updateVisibility()
     for _, desc in pairs(Workspace:GetDescendants()) do
         if desc:IsA("BasePart") or desc:IsA("MeshPart") then
-            if isNotMine(desc) then
+            if checkTarget(desc) then
                 if _G.AntiLagEnabled then
                     desc.LocalTransparencyModifier = 1
                     desc.CastShadow = false
@@ -62,23 +66,23 @@ local function updateVisibility()
     end
 end
 
--- Loop latar belakang yang berjalan jika fitur diaktifkan
+-- Loop pengecekan dipercepat menjadi 2 detik agar tanaman yang baru tumbuh langsung hilang
 task.spawn(function()
-    while task.wait(3) do
+    while task.wait(2) do
         if _G.AntiLagEnabled then
             pcall(updateVisibility)
         end
     end
 end)
 
--- Membuat Toggle di dalam UI
+-- Toggle Menu
 MainTab.Toggle({
-    Text = "Hide Other Players' Garden (Anti-Lag)",
+    Text = "Hide ALL Gardens & Plants",
     Callback = function(value)
         _G.AntiLagEnabled = value
-        pcall(updateVisibility) -- Langsung eksekusi perubahan saat tombol ditekan
+        pcall(updateVisibility) -- Langsung eksekusi saat di-klik
     end,
     Enabled = false
 })
 
-print("SPEED HUB V4: Redfield UI berhasil dimuat!")
+print("SPEED HUB V4: Fitur Hide All Garden Siap Digunakan!")
