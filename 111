@@ -1,7 +1,6 @@
--- SPEED HUB V4: TOTAL ANTI-LAG SYSTEM (ALL PLANTS HIDER)
+-- SPEED HUB V4: ULTRA AGGRESSIVE ANTI-LAG (BYPASS KEYWORDS)
 local Material = loadstring(game:HttpGet("https://raw.githubusercontent.com/Kinlei/MaterialLua/master/Module.lua"))()
 
--- Inisialisasi UI Window
 local UI = Material.Load({
     Title = "SPEED HUB V4",
     Style = 3,
@@ -13,48 +12,39 @@ local MainTab = UI.New({
     Title = "Main"
 })
 
--- Variabel Kontrol Global
 local _G = _G or {}
-_G.AntiLagEnabled = false
+_G.SuperAntiLag = false
 
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
 local Workspace = game:GetService("Workspace")
 
--- Kamus kata kunci super luas (deteksi model, folder, atau part)
-local AGGRESSIVE_KEYWORDS = {
-    "tanaman", "buah", "garden", "plant", "fruit", "crop", "seed", 
-    "flower", "bunga", "pohon", "tree", "plot", "dirt", "farm",
-    "harvest", "berry", "tomato", "carrot", "apple", "wheat",
-    "fertilizer", "pot", "planter", "vegetable", "daisy"
-}
-
--- Fungsi deteksi berdasarkan nama objek atau nama induknya
-local function checkTarget(object)
-    local objName = object.Name:lower()
-    for _, keyword in pairs(AGGRESSIVE_KEYWORDS) do
-        if string.find(objName, keyword) then
+-- Fungsi mendeteksi apakah objek aman (Jangan di-hide)
+local function isSafeObject(object)
+    -- Jangan sembunyikan karakter kita atau karakter player lain
+    for _, player in pairs(Players:GetPlayers()) do
+        if player.Character and object:IsDescendantOf(player.Character) then
+            -- Tetap tampilkan baju/aksesoris player
             return true
         end
     end
     
-    -- Cek juga nama parent-nya (jika part berada di dalam Model tanaman)
-    if object.Parent then
-        local parentName = object.Parent.Name:lower()
-        for _, keyword in pairs(AGGRESSIVE_KEYWORDS) do
-            if string.find(parentName, keyword) then
-                return true
-            end
-        end
+    -- Jangan sembunyikan peta dasar, langit, atau UI dasar game
+    local name = object.Name:lower()
+    if name == "baseplate" or name == "terrain" or name == "spawnlocation" or object:IsA("Camera") then
+        return true
     end
     
     return false
 end
 
--- Fungsi eksekutor transparansi
-local function updateVisibility()
+-- Fungsi Eksekusi Transparansi Total
+local function applySuperHide()
     for _, desc in pairs(Workspace:GetDescendants()) do
+        -- Targetkan semua MeshPart, Part, atau SpecialMesh (bentuk visual tanaman)
         if desc:IsA("BasePart") or desc:IsA("MeshPart") then
-            if checkTarget(desc) then
-                if _G.AntiLagEnabled then
+            if not isSafeObject(desc) then
+                if _G.SuperAntiLag then
                     desc.LocalTransparencyModifier = 1
                     desc.CastShadow = false
                 else
@@ -66,23 +56,23 @@ local function updateVisibility()
     end
 end
 
--- Loop pengecekan dipercepat menjadi 2 detik agar tanaman yang baru tumbuh langsung hilang
+-- Loop di latar belakang untuk membersihkan tanaman yang baru muncul/tumbuh
 task.spawn(function()
-    while task.wait(2) do
-        if _G.AntiLagEnabled then
-            pcall(updateVisibility)
+    while task.wait(1.5) do -- Scan lebih cepat (1.5 detik)
+        if _G.SuperAntiLag then
+            pcall(applySuperHide)
         end
     end
 end)
 
--- Toggle Menu
+-- Toggle Menu di UI
 MainTab.Toggle({
-    Text = "Hide ALL Gardens & Plants",
+    Text = "Super Hide All (Anti-Lag 100%)",
     Callback = function(value)
-        _G.AntiLagEnabled = value
-        pcall(updateVisibility) -- Langsung eksekusi saat di-klik
+        _G.SuperAntiLag = value
+        pcall(applySuperHide) -- Langsung eksekusi perubahan saat ditekan
     end,
     Enabled = false
 })
 
-print("SPEED HUB V4: Fitur Hide All Garden Siap Digunakan!")
+print("SPEED HUB V4: Super Anti-Lag Mode Berhasil Dimuat!")
