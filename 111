@@ -1,70 +1,181 @@
--- SPEED HUB V4: ULTIMATE PERFORMANCE & ESP
+-- SPEED HUB V4: ALL-IN-ONE PERFORMANCE & VISUAL HUB (MOBILE OPTIMIZED)
 local Material = loadstring(game:HttpGet("https://raw.githubusercontent.com/Kinlei/MaterialLua/master/Module.lua"))()
 
+-- Inisialisasi UI Window Utama
 local UI = Material.Load({
     Title = "SPEED HUB V4",
     Style = 3,
-    Size = UDim2.fromOffset(400, 360),
+    Size = UDim2.fromOffset(400, 360), -- Ukuran pas untuk layar HP
     TextColor = Color3.fromRGB(255, 255, 255)
 })
 
+-- Membuat 3 Tab Terpisah
 local MainTab = UI.New({ Title = "Main" })
 local VisualTab = UI.New({ Title = "Visual / ESP" })
 local OptTab = UI.New({ Title = "Optimization" })
 
-local _G = _G or {}
+-- Variabel Kontrol Global
+_G.SuperAntiLag = false
+_G.ModelEspEnabled = false
+_G.NoAnimations = false
+
 local Workspace = game:GetService("Workspace")
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 
 -------------------------------------------------------------------------
--- [FITUR ANIMATION HIDER]
+-- [1. LOGIKA ANTI-LAG (SUPER HIDE)]
 -------------------------------------------------------------------------
-local function stopAllAnimations(value)
-    for _, descendant in pairs(Workspace:GetDescendants()) do
-        if descendant:IsA("Animator") then
-            if value then
-                -- Mematikan semua track animasi
-                for _, track in pairs(descendant:GetPlayingAnimationTracks()) do
-                    track:Stop()
+local function isSafeObject(object)
+    for _, player in pairs(Players:GetPlayers()) do
+        if player.Character and object:IsDescendantOf(player.Character) then
+            return true
+        end
+    end
+    local name = object.Name:lower()
+    if name == "baseplate" or name == "terrain" or name == "spawnlocation" or object:IsA("Camera") then
+        return true
+    end
+    return false
+end
+
+local function applySuperHide()
+    for _, desc in pairs(Workspace:GetDescendants()) do
+        if desc:IsA("BasePart") or desc:IsA("MeshPart") then
+            if not isSafeObject(desc) then
+                if _G.SuperAntiLag then
+                    desc.LocalTransparencyModifier = 1
+                    desc.CastShadow = false
+                else
+                    desc.LocalTransparencyModifier = 0
+                    desc.CastShadow = true
                 end
-                descendant.Parent.Parent:FindFirstChildOfClass("Humanoid").WalkSpeed = 0 -- Opsional: bisa dihilangkan
             end
         end
     end
 end
 
--- Hook otomatis jika ada animasi baru yang muncul
+-------------------------------------------------------------------------
+-- [2. LOGIKA MODEL ESP]
+-------------------------------------------------------------------------
+local function createEsp(model)
+    if not model:IsA("Model") or model == LocalPlayer.Character then return end
+    if Players:GetPlayerFromCharacter(model) then return end 
+    
+    local targetPart = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart")
+    if not targetPart or targetPart:FindFirstChild("SPEED_HUB_ESP") then return end
+
+    local billboard = Instance.new("BillboardGui")
+    billboard.Name = "SPEED_HUB_ESP"
+    billboard.Size = UDim2.new(0, 150, 0, 30)
+    billboard.AlwaysOnTop = true 
+    billboard.ExtentsOffset = Vector3.new(0, 2.5, 0) 
+    billboard.Adornee = targetPart
+    billboard.Parent = targetPart
+
+    local textLabel = Instance.new("TextLabel")
+    textLabel.Size = UDim2.new(1, 0, 1, 0)
+    textLabel.BackgroundTransparency = 1
+    textLabel.Text = model.Name
+    textLabel.TextColor3 = Color3.fromRGB(0, 255, 150) 
+    textLabel.TextSize = 12
+    textLabel.Font = Enum.Font.SourceSansBold
+    textLabel.TextStrokeTransparency = 0 
+    textLabel.Parent = billboard
+end
+
+local function removeAllEsp()
+    for _, obj in pairs(Workspace:GetDescendants()) do
+        if obj.Name == "SPEED_HUB_ESP" then
+            obj:Destroy()
+        end
+    end
+end
+
+local function runEspSystem()
+    if _G.ModelEspEnabled then
+        for _, desc in pairs(Workspace:GetDescendants()) do
+            if desc:IsA("Model") then
+                pcall(createEsp, desc)
+            end
+        end
+    else
+        removeAllEsp()
+    end
+end
+
+-------------------------------------------------------------------------
+-- [3. LOGIKA MATIKAN ANIMASI]
+-------------------------------------------------------------------------
+local function stopAllAnimations()
+    if not _G.NoAnimations then return end
+    for _, descendant in pairs(Workspace:GetDescendants()) do
+        if descendant:IsA("Animator") then
+            pcall(function()
+                for _, track in pairs(descendant:GetPlayingAnimationTracks()) do
+                    track:Stop()
+                end
+            end)
+        end
+    end
+end
+
+-- Deteksi jika ada animasi baru yang dipaksa berjalan oleh game
 Workspace.DescendantAdded:Connect(function(descendant)
     if _G.NoAnimations and descendant:IsA("AnimationTrack") then
-        descendant:Stop()
+        pcall(function() descendant:Stop() end)
     end
 end)
 
 -------------------------------------------------------------------------
--- [UI TOGGLES]
+-- [4. SETTING TOMBOL / TOGGLE UI]
 -------------------------------------------------------------------------
--- Tab Main & Visual sudah ada di script sebelumnya...
--- (Tambahkan ini ke dalam script kamu)
 
-OptTab.Toggle({
-    Text = "Disable All Animations",
+-- TAB 1: MAIN (Anti-Lag 100%)
+MainTab.Toggle({
+    Text = "Super Hide All (Anti-Lag 100%)",
     Callback = function(value)
-        _G.NoAnimations = value
-        if value then
-            stopAllAnimations(true)
+        _G.SuperAntiLag = value
+        pcall(applySuperHide)
+    end,
+    Enabled = false
+})
+
+-- TAB 2: VISUAL / ESP
+VisualTab.Toggle({
+    Text = "Enable Model Name ESP",
+    Callback = function(value)
+        _G.ModelEspEnabled = value
+        if not value then
+            pcall(removeAllEsp)
+        else
+            pcall(runEspSystem)
         end
     end,
     Enabled = false
 })
 
--- Tambahkan logika loop untuk memastikan animasi tetap mati
-task.spawn(function()
-    while task.wait(1) do
-        if _G.NoAnimations then
-            pcall(function() stopAllAnimations(true) end)
+-- TAB 3: OPTIMIZATION (Animasi)
+OptTab.Toggle({
+    Text = "Disable All Animations",
+    Callback = function(value)
+        _G.NoAnimations = value
+        if value then
+            pcall(stopAllAnimations)
         end
+    end,
+    Enabled = false
+})
+
+-------------------------------------------------------------------------
+-- [5. LOOP LATAR BELAKANG REFRESH SYSTEM]
+-------------------------------------------------------------------------
+task.spawn(function()
+    while task.wait(1.5) do
+        if _G.SuperAntiLag then pcall(applySuperHide) end
+        if _G.ModelEspEnabled then pcall(runEspSystem) end
+        if _G.NoAnimations then pcall(stopAllAnimations) end
     end
 end)
 
-print("SPEED HUB V4: Semua Fitur Termasuk Anti-Animasi Siap!")
+print("SPEED HUB V4: Semua menu dan opsi berhasil dimuat dengan sempurna!")
